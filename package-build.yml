@@ -15,8 +15,7 @@ spec:
           template:
           - ytt:
               paths:
-              - config
-              - config-release
+              - config/package-bundle/config
           - kbld:
               paths:
               - '-'
@@ -26,6 +25,5 @@ spec:
           image: ghcr.io/carvel-dev/kapp-controller-package-bundle
           useKbldImagesLock: false
         includePaths:
-        - config
-        - config-release
+        - config/package-bundle/config
         - .imgpkg/images.yml
