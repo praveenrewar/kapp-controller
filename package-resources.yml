@@ -17,8 +17,7 @@ spec:
       template:
       - ytt:
           paths:
-          - config
-          - config-release
+          - config/package-bundle/config
       - kbld: {}
   valuesSchema:
     openAPIv3: null
