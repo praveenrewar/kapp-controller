@@ -18,4 +18,3 @@ ytt -f config/package-bundle/config -f config/release -v dev.version="$version" 
 shasum -a 256 ./tmp/release.yml
 
 echo SUCCESS
-
