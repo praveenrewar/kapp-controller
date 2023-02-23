@@ -13,4 +13,3 @@ function get_latest_git_tag {
 function get_kappctrl_ver {
   echo "${1:-`get_latest_git_tag`}"
 }
-
