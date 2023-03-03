@@ -1,4 +1,18 @@
+#@ load("@ytt:overlay", "overlay")
 #@ load("@ytt:data", "data")
+#@ load("@ytt:yaml", "yaml")
+
+#@ def is_toleration_specified(toleration):
+#@   return toleration in yaml.decode(yaml.encode(data.values.tolerations))
+#@ end
+
+#@ default_tolerations = []
+#@ is_primary_specified = is_toleration_specified({"effect":"NoSchedule", "key":"node-role.kubernetes.io/master"})
+#@ is_control_specified = is_toleration_specified({"effect":"NoSchedule", "key":"node-role.kubernetes.io/control-plane"})
+
+#@ if is_primary_specified and not is_control_specified:
+#@   default_tolerations += [{"effect":"NoSchedule", "key":"node-role.kubernetes.io/control-plane"}]
+#@ end
 
 apiVersion: apps/v1
 kind: Deployment
@@ -28,6 +42,10 @@ spec:
         - -dangerous-enable-pprof=true
         - #@ "-enable-api-priority-and-fairness={}".format(data.values.enable_api_priority_and_fairness)
         - #@ "-tls-cipher-suites={}".format(data.values.tls_cipher_suites)
+        #@ if/end data.values.concurrency > 0:
+        - #@ "-concurrency={}".format(data.values.concurrency)
+        #@ if/end data.values.metricsBindAddress:
+        - #@ "-metricsBindAddress={}".format(data.values.metricsBindAddress)
         env:
         - name: KAPPCTRL_MEM_TMP_DIR
           value: /etc/kappctrl-mem-tmp
@@ -79,6 +97,9 @@ spec:
         #! mount over service account token to make it not available
         - name: empty-sa
           mountPath: /var/run/secrets/kubernetes.io/serviceaccount
+        #@ if/end data.values.coreDNSIP:
+        - name: etc
+          mountPath: /etc
         securityContext:
           allowPrivilegeEscalation: false
           readOnlyRootFilesystem: false #! TODO(bmo): don't write to the root ca-bundle
@@ -86,6 +107,31 @@ spec:
           capabilities:
             drop:
             - ALL
+      #@ if data.values.coreDNSIP:
+      #! Using init container bypasses the restriction of not having root access in main container
+      #! It modifies /etc/resolv.conf which is shared to main container
+      initContainers:
+      - args:
+        - -c
+        - #@ "cp /etc/resolv.conf /etc/resolv.conf.bak; sed '1 i nameserver " + data.values.coreDNSIP + "' /etc/resolv.conf.bak > /etc/resolv.conf; rm /etc/resolv.conf.bak; cp -R /etc/* /kapp-etc; chmod g+w /kapp-etc/pki/tls/certs/"
+        command:
+        - /bin/sh
+        image: kapp-controller
+        name: init-kapp-controller
+        securityContext:
+          allowPrivilegeEscalation: false
+          runAsUser: 0
+        volumeMounts:
+        - mountPath: /kapp-etc
+          name: etc
+      #@ end
+      #@ if/end data.values.hostNetwork:
+      hostNetwork: #@ data.values.hostNetwork
+      #@ if/end data.values.priorityClassName:
+      priorityClassName: #@ data.values.priorityClassName
+      #@ if data.values.tolerations:
+      tolerations: #@ default_tolerations + data.values.tolerations
+      #@ end
       volumes:
       - name: template-fs
         emptyDir:
@@ -95,6 +141,12 @@ spec:
           medium: Memory
       - name: empty-sa
         emptyDir: {}
+      #@ if data.values.coreDNSIP:
+      #@overlay/append
+      - name: etc
+        emptyDir:
+          medium: Memory
+      #@ end
 
 #@ if/end data.values.dangerous_enable_pprof:
 ---

@@ -1,0 +1,37 @@
+#@ load("@ytt:overlay", "overlay")
+#@ load("@ytt:data", "data")
+
+#@ def is_config_empty(config):
+#@   if config.caCerts != "":
+#@     return False
+#@   elif config.httpProxy != "":
+#@     return False
+#@   elif config.httpsProxy != "":
+#@     return False
+#@   elif config.noProxy != "":
+#@     return False
+#@   elif config.dangerousSkipTLSVerify != "":
+#@     return False
+#@   elif config.kappDeployRawOptions != "":
+#@     return False
+#@   elif config.appDefaultSyncPeriod != "":
+#@     return False
+#@   elif config.appMinimumSyncPeriod != "":
+#@     return False
+#@   end
+#@   return True
+#@ end
+
+#@ if not is_config_empty(data.values.config):
+#@overlay/match by=overlay.subset({"kind":"Deployment","metadata":{"name": "kapp-controller"}})
+#@overlay/insert before=True
+---
+#! This optional Secret must be created before the kapp-controller pod launches in order to read it.
+apiVersion: v1
+kind: Secret
+metadata:
+  #! Name must be `kapp-controller-config` for kapp controller to pick it up
+  name: kapp-controller-config
+  namespace: #@ data.values.namespace
+stringData: #@ data.values.config
+#@ end
