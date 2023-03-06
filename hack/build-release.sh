@@ -18,7 +18,7 @@ ytt -f config/config -f config/values-schema.yml -f config-release -v dev.versio
 
 # Update image url in kapp-controller package overlays
 image_url=`yq e '.spec.template.spec.containers[] | select(.name == "kapp-controller") | .image' ./tmp/release.yml`
-sed 's/image: kapp-controller/image: '"$image_url"'/' config/overlays/update-deployment.yml > tmp/update-deployment.yml
+sed 's|image: kapp-controller|image: '"$image_url"'|' config/overlays/update-deployment.yml > tmp/update-deployment.yml
 mv tmp/update-deployment.yml config/overlays/update-deployment.yml
 
 shasum -a 256 ./tmp/release.yml
